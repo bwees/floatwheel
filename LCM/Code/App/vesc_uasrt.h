@@ -44,7 +44,7 @@ extern dataPackage data;
 extern lcmConfig_t lcmConfig;
 extern uint8_t errCode;
 
-void Get_Vesc_Pack_Data(COMM_PACKET_ID id);
+void Get_Vesc_Pack_Data(uint8_t id);
 uint8_t Protocol_Parse(uint8_t * message);
 
 #endif

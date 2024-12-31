@@ -800,6 +800,11 @@ void Headlights_Task(void)
 		// set the brightness based on red, set negative/positive based on direction 
 		// (if green > 0, then show white on front)
 		Set_Headlights_Brightness(front_red * (front_green > 0 ? 1 : -1));
+
+		if (gear_position_last != Gear_Position) {
+			Get_Vesc_Pack_Data(FLOAT_COMMAND_LCM_CTRL);
+			gear_position_last = Gear_Position;
+		}
 	} else {
 		if ((Target_Headlight_Brightness != 0) || (Current_Headlight_Brightness != 0)) {
 			if (Current_Headlight_Brightness < Target_Headlight_Brightness) {
@@ -963,7 +968,6 @@ void Buzzer_Task(void)
  **************************************************/
 void Usart_Task(void)
 {
-	static uint8_t usart_step = 0;
 	static uint8_t commandIndex = 0; // Store a rotating index so we can implement relevant frequencies of commands
 	uint8_t result;
 
@@ -980,16 +984,21 @@ void Usart_Task(void)
 		data.state = 255;
 		data.fault = 0;
 		data.isForward = true;
+		data.ledDataValid = false;
 
-		usart_step = 0;
 		commandIndex = 0;
 		
 		return;
 	}
-	
-	switch(usart_step)
+
+	if(VESC_RX_Flag == 1)
 	{
-		case 0:
+		VESC_RX_Flag = 0;
+		Protocol_Parse(VESC_RX_Buff);
+	}
+	
+	if (Usart_Time >= 20) {
+		if (commandIndex % 5 == 0) {
 			// Try the custom app command for the first 2 seconds then fall back to generic GET_VALUES
 			if ((data.floatPackageSupported == false) && (Power_Time > VESC_BOOT_TIME * 2)) {
 				Get_Vesc_Pack_Data(COMM_GET_VALUES);
@@ -997,69 +1006,34 @@ void Usart_Task(void)
 				uint8_t command = COMM_CUSTOM_APP_DATA;
 
 #ifdef ADV
-				if (commandIndex % 20 == 0) {
-					// Sending charge info every 20th frame
+				if (commandIndex % 100 == 0) {
+					// Sending charge info every 2 seconds
 					command = COMM_CHARGE_INFO;
 				} else 
 #endif
-				if (lcmConfig.debug && commandIndex % 2 == 0) {
-					// Send debug info every 2nd frame if enabled
+				if (lcmConfig.debug && commandIndex % 10 == 0) {
+					// Send debug info every 200ms if enabled
 					command = COMM_CUSTOM_DEBUG;
 				}
 
 				Get_Vesc_Pack_Data(command);
+			}
+		}
+		else if ((commandIndex > 0) && ((commandIndex - 1) % 2 == 0))
+		{
+			if ((data.ledDataValid == true) || (Power_Time < VESC_BOOT_TIME * 2)) {
+				// poll every 40ms (25hz) for new LED data
+				Get_Vesc_Pack_Data(FLOAT_COMMAND_GET_LED);
+			}
+		}
 
-				if (commandIndex == 255) {
-					commandIndex = 0;
-				} else {
-					commandIndex++;
-				}
-			}
+		// Reset commandIndex after 100 iterations (the max used by COMM_CHARGE_INFO)
+		if (++commandIndex == 100) {
+			commandIndex = 0;
+		}
 
-			usart_step = 1;
-		break;
-		
-		case 1:
-			if(VESC_RX_Flag == 1)
-			{
-				VESC_RX_Flag = 0;
-				result = Protocol_Parse(VESC_RX_Buff);
-				
-				Vesc_Data_Ready = (result == 0);
-				Usart_Time = 0;
-				usart_step = 2;
-			}
-			else
-			{
-				usart_step = 3;
-				Usart_Time = 0;
-			}
-		break;
-			
-		case 2:
-			if(Usart_Time >= 100)
-			{
-				usart_step = 0;
-			}				
-		break;
-			
-		case 3:
-			if(VESC_RX_Flag == 1)
-			{
-				usart_step = 1;
-			}
-			else if(Usart_Time >= 100)
-			{
-				usart_step = 0;
-			}
-		break;
-			
-		default:
-			
-		break;
-		
+		Usart_Time = 0;
 	}
-	
 }
 
 /**************************************************

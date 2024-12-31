@@ -1,7 +1,6 @@
 #include "ws2812.h"
 
 uint16_t WS2812_Counter = 0;
-uint16_t WS2812_Refloat_Counter = 0;
 uint8_t WS2812_Buff[WS2812_N][24];
 
 /**************************************************

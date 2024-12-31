@@ -100,7 +100,7 @@ void buffer_append_float16(uint8_t* buffer, float number, uint8_t scale, uint8_t
  * @param  :id 数据包id
  * @retval :无
  **************************************************/
-void Get_Vesc_Pack_Data(COMM_PACKET_ID id)
+void Get_Vesc_Pack_Data(uint8_t id)
 {
 	uint8_t command[32];
 	int len = 1;
@@ -137,6 +137,16 @@ void Get_Vesc_Pack_Data(COMM_PACKET_ID id)
 		buffer_append_float16(command, Charge_Voltage, 10, &ind); 	// -voltage: 16bit float divided by 10
 		buffer_append_float16(command, Charge_Current, 10, &ind); 	// -current: 16bit float divided by 10
 		len = 9;
+	}
+
+	if (id == FLOAT_COMMAND_LCM_CTRL) {
+		command[0] = COMM_CUSTOM_APP_DATA;
+		command[1] = 101;
+		command[2] = FLOAT_COMMAND_LCM_CTRL;
+		command[3] = (uint8_t)(headlight_brightnesses[Gear_Position - 1] / 255.0 * 100.0);
+		command[4] = 0;
+		command[5] = status_brightnesses[Gear_Position - 1] * 5;
+		len = 6;
 	}
 
 	if (id == COMM_CUSTOM_DEBUG) {
@@ -348,6 +358,8 @@ uint8_t Protocol_Parse(uint8_t * message)
 				// Use this fault as a placeholder (we only care that the board is stopped anyways)
 				data.state = FAULT_STARTUP;
 			}
+
+			Vesc_Data_Ready = true;
 		
 		break;
 		
@@ -367,14 +379,14 @@ uint8_t Protocol_Parse(uint8_t * message)
 					
 					// make sure we have 12 LEDs
 					if (pdata[ind++] == 12) {
-						
-						uint8_t statusLength = pdata[ind++];
-						uint8_t frontLength = pdata[ind++];
-						uint8_t rearLength = pdata[ind++];
 
 						uint8_t statusIdx = pdata[ind++];
 						uint8_t frontIdx = pdata[ind++];
 						uint8_t rearIdx = pdata[ind++];
+						
+						uint8_t statusLength = pdata[ind++];
+						uint8_t frontLength = pdata[ind++];
+						uint8_t rearLength = pdata[ind++];
 
 						// make sure we have the expected config for refloat LEDs
 						if (
@@ -447,17 +459,24 @@ uint8_t Protocol_Parse(uint8_t * message)
 							Process_Command(command, data);
 						}
 					}
+
+					Vesc_Data_Ready = true;
+
 					break;
 				default:
 					break;
 			}
 	}
-	if (data.rpm > 100)
-		data.isForward = data.state != RUNNING_UPSIDEDOWN;
-	if (data.rpm < -100)
-		data.isForward = data.state == RUNNING_UPSIDEDOWN;
-	if (data.state > RUNNING_FLYWHEEL)
-		data.isForward = true;
+
+	if (Vesc_Data_Ready)
+	{
+		if (data.rpm > 100)
+			data.isForward = data.state != RUNNING_UPSIDEDOWN;
+		if (data.rpm < -100)
+			data.isForward = data.state == RUNNING_UPSIDEDOWN;
+		if (data.state > RUNNING_FLYWHEEL)
+			data.isForward = true;
+	}
 
 	return 0;
 }

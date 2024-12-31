@@ -34,7 +34,7 @@
 
 #define   SHUTDOWN_TIME		  		10
 #define   VESC_RPM            		1000
-#define   VESC_BOOT_TIME      		4000
+#define   VESC_BOOT_TIME      		5000
 #define   VESC_SHUTDOWN_TIME      	1000
 #define   DUTY_CYCLE          		0.9
 #define   VOLTAGE_RECEIPT     		0.02
@@ -49,6 +49,9 @@
 #define   CHARGER_DETECTION_DELAY	1000
 #define   NUM_LEDS 					10
 #define   DEFAULT_IDLE_MODE			0
+
+extern int headlight_brightnesses[];
+extern int status_brightnesses[];
 
 void LED_Task(void);
 void KEY1_Task(void);

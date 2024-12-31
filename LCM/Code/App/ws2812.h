@@ -11,7 +11,6 @@
 #define		WS2812_R	0x00  	//��λ��
 
 extern uint16_t WS2812_Counter;
-extern uint16_t WS2812_Refloat_Counter;
 extern uint8_t WS2812_Buff[WS2812_N][24];
 
 void WS2812_Init(void);
